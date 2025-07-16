@@ -5,6 +5,8 @@ import com.crudApp.model.Post;
 import com.crudApp.model.PostStatus;
 import com.crudApp.repository.LabelRepository;
 import com.crudApp.repository.PostRepository;
+import com.crudApp.repository.impl.JdbcLabelRepositoryImpl;
+import com.crudApp.repository.impl.JdbcPostRepositoryImpl;
 import com.crudApp.service.PostService;
 
 import java.time.LocalDateTime;
@@ -15,6 +17,11 @@ public class PostServiceImpl implements PostService {
 
     private final PostRepository postRepository;
     private final LabelRepository labelRepository;
+
+    public PostServiceImpl() {
+        this.postRepository = new JdbcPostRepositoryImpl();
+        this.labelRepository = new JdbcLabelRepositoryImpl();
+    }
 
     public PostServiceImpl(PostRepository postRepository, LabelRepository labelRepository) {
         this.postRepository = postRepository;
@@ -64,11 +71,7 @@ public class PostServiceImpl implements PostService {
     }
 
     private List<Label> findLabels(List<Long> ids) {
-        List<Label> labels = new ArrayList<>();
-        for (Long id : ids) {
-            Label label = labelRepository.findById(id);
-            if (label != null) labels.add(label);
-        }
-        return labels;
+        return labelRepository.findAllLabelsByIdIn(ids);
+
     }
 }

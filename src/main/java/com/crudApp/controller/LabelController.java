@@ -2,6 +2,7 @@ package com.crudApp.controller;
 
 import com.crudApp.model.Label;
 import com.crudApp.service.LabelService;
+import com.crudApp.service.impl.LabelServiceImpl;
 
 import java.util.List;
 

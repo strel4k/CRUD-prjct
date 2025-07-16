@@ -1,8 +1,10 @@
 package com.crudApp.repository.impl;
 
 import com.crudApp.model.Post;
+import com.crudApp.model.PostStatus;
 import com.crudApp.model.Writer;
 import com.crudApp.repository.WriterRepository;
+import com.crudApp.util.JdbcUtil;
 
 import java.sql.*;
 import java.util.ArrayList;
@@ -10,16 +12,12 @@ import java.util.List;
 
 public class JdbcWriterRepositoryImpl implements WriterRepository {
 
-    private static final String URL = "jdbc:mysql://localhost:3306/prjct_app";
-    private static final String USER = "root";
-    private static final String PASSWORD = "password";
-
     private final JdbcPostRepositoryImpl postRepository = new JdbcPostRepositoryImpl();
 
     @Override
     public Writer save(Writer writer) {
         String sql = "INSERT INTO writer (first_name, last_name) VALUES (?, ?)";
-        try (Connection connection = DriverManager.getConnection(URL, USER, PASSWORD);
+        try (Connection connection = JdbcUtil.getInstance().getConnection();
              PreparedStatement ps = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setString(1, writer.getFirstName());
             ps.setString(2, writer.getLastName());
@@ -41,16 +39,20 @@ public class JdbcWriterRepositoryImpl implements WriterRepository {
     @Override
     public Writer update(Writer writer) {
         String sql = "UPDATE writer SET first_name = ?, last_name = ? WHERE id = ?";
-        try (Connection connection = DriverManager.getConnection(URL, USER, PASSWORD);
-             PreparedStatement ps = connection.prepareStatement(sql)) {
-            ps.setString(1, writer.getFirstName());
-            ps.setString(2, writer.getLastName());
-            ps.setLong(3, writer.getId());
-            ps.executeUpdate();
+        try (Connection connection = JdbcUtil.getInstance().getConnection()) {
+            connection.setAutoCommit(false);
+
+            try (PreparedStatement ps = connection.prepareStatement(sql)) {
+                ps.setString(1, writer.getFirstName());
+                ps.setString(2, writer.getLastName());
+                ps.setLong(3, writer.getId());
+                ps.executeUpdate();
+            }
 
             deleteWriterPosts(connection, writer.getId());
             saveWriterPosts(connection, writer);
 
+            connection.commit();
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -59,23 +61,63 @@ public class JdbcWriterRepositoryImpl implements WriterRepository {
 
     @Override
     public Writer findById(Long id) {
-        String sql = "SELECT * FROM writer WHERE id = ?";
+        String sql = """
+            SELECT w.id as writer_id,
+                   w.first_name,
+                   w.last_name,
+                   p.id as post_id,
+                   p.content,
+                   p.created,
+                   p.updated,
+                   p.status
+            FROM writer w
+            LEFT JOIN writer_post wp ON w.id = wp.writer_id
+            LEFT JOIN post p ON wp.post_id = p.id
+            WHERE w.id = ?
+            """;
+
         Writer writer = null;
-        try (Connection connection = DriverManager.getConnection(URL, USER, PASSWORD);
+        try (Connection connection = JdbcUtil.getInstance().getConnection();
              PreparedStatement ps = connection.prepareStatement(sql)) {
+
             ps.setLong(1, id);
             ResultSet rs = ps.executeQuery();
-            if (rs.next()) {
-                writer = new Writer(
-                        rs.getLong("id"),
-                        rs.getString("first_name"),
-                        rs.getString("last_name"),
-                        getPostsByWriterId(connection, id)
-                );
+
+            List<Post> posts = new ArrayList<>();
+
+            while (rs.next()) {
+                if (writer == null) {
+                    writer = new Writer(
+                            rs.getLong("writer_id"),
+                            rs.getString("first_name"),
+                            rs.getString("last_name"),
+                            new ArrayList<>()
+                    );
+                }
+
+                Long postId = rs.getLong("post_id");
+                if (postId != 0) {
+                    Post post = new Post(
+                            postId,
+                            rs.getString("content"),
+                            rs.getTimestamp("created").toLocalDateTime(),
+                            rs.getTimestamp("updated").toLocalDateTime(),
+                            new ArrayList<>(),
+                            PostStatus.valueOf(rs.getString("status"))
+                    );
+                    posts.add(post);
+                }
             }
+
+            if (writer != null) {
+                writer.setPosts(posts);
+            }
+
+            rs.close();
         } catch (SQLException e) {
             e.printStackTrace();
         }
+
         return writer;
     }
 
@@ -83,9 +125,11 @@ public class JdbcWriterRepositoryImpl implements WriterRepository {
     public List<Writer> findAll() {
         List<Writer> writers = new ArrayList<>();
         String sql = "SELECT * FROM writer";
-        try (Connection connection = DriverManager.getConnection(URL, USER, PASSWORD);
-             Statement statement = connection.createStatement()) {
-            ResultSet rs = statement.executeQuery(sql);
+
+        try (Connection connection = JdbcUtil.getInstance().getConnection();
+             Statement statement = connection.createStatement();
+             ResultSet rs = statement.executeQuery(sql)) {
+
             while (rs.next()) {
                 Writer writer = new Writer(
                         rs.getLong("id"),
@@ -104,12 +148,15 @@ public class JdbcWriterRepositoryImpl implements WriterRepository {
     @Override
     public void deleteById(Long id) {
         String sql = "DELETE FROM writer WHERE id = ?";
-        try (Connection connection = DriverManager.getConnection(URL, USER, PASSWORD)) {
+        try (Connection connection = JdbcUtil.getInstance().getConnection()) {
+
             deleteWriterPosts(connection, id);
+
             try (PreparedStatement ps = connection.prepareStatement(sql)) {
                 ps.setLong(1, id);
                 ps.executeUpdate();
             }
+
         } catch (SQLException e) {
             e.printStackTrace();
         }
