@@ -21,18 +21,13 @@
 
 ## 🗂️ Структура проекта
 src
+
 └── main
-
 └── java
-
 └── com.crudApp
-
 ├── model # Writer, Post, Label, PostStatus
-
 ├── repository # Интерфейсы
-
 ├── repository.impl # JDBC-реализации
-
 └── util # JdbcUtil, ResultSetMapper
 
 ## 🪃 Как запустить
