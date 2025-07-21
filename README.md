@@ -13,7 +13,10 @@
 - **Java 17**
 - **JDBC** (через `PreparedStatement`)
 - **MySQL 8+**
-- **Gradle** (Kotlin DSL)
+- **Gradle**
+- **Liquibase**
+- **JUnit 5**
+- **Mockito**
 - **Maven-style структура проекта**
 - **Паттерн Repository**
 - **Singleton JdbcUtil**
@@ -23,11 +26,17 @@
 src
 
 └── main
+
 └── java
+
 └── com.crudApp
+
 ├── model # Writer, Post, Label, PostStatus
+
 ├── repository # Интерфейсы
+
 ├── repository.impl # JDBC-реализации
+
 └── util # JdbcUtil, ResultSetMapper
 
 ## 🪃 Как запустить
